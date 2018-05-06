@@ -3,7 +3,6 @@ import random
 
 import json
 import soundfile as sf
-import sounddevice as sd
 
 INSTRUMENT_NAMES = [
         "bass",
@@ -99,6 +98,7 @@ def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
     return (data, sample_rate, sample_length)
 
 if __name__ == "__main__":
+    import sounddevice as sd
     data, sample_rate, sample_length = load_data(amount=100)
     print("Sample rate = {}, sample length = {}".format(sample_rate, sample_length))
     random.shuffle(data)
