@@ -1,13 +1,11 @@
 import os
 import random
-import sounddevice as sd
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 import numpy as np
-import matplotlib.pyplot as plt
 
 import dataloader
 
@@ -66,6 +64,10 @@ class Decoder(nn.Module):
 
 
 def test_show(amount=10):
+    import sounddevice as sd
+    import matplotlib.pyplot as plt
+
+
     sounds = [x.sound for x in data[:amount]]
     print(data[0])
     sound = Variable(torch.Tensor(sounds))
