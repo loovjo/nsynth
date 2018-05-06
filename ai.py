@@ -186,9 +186,10 @@ if __name__ == "__main__":
         print("Saving")
         train_loss_history.append(loss.data[0])
 
+        EPOCH += 1
+
         save()
 
-        EPOCH += 1
 
     print("Done")
 
