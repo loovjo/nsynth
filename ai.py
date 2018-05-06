@@ -13,7 +13,7 @@ _, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
 
 CTX_SIZE = 500
 SAMPLE_GEN = 400
-BATCH_SIZE = 50
+BATCH_SIZE = 15
 
 SAVE_PATH = LOAD_PATH = "ai.pt"
 
@@ -21,20 +21,17 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.conv_1 = nn.Conv1d(1, 100, 50)
-        self.conv_2 = nn.Conv1d(100, 50, 50)
-        self.conv_3 = nn.Conv1d(50, 10, 50)
-        self.conn   = nn.Linear(4990, CTX_SIZE)
+        self.conv_1 = nn.Conv1d(1, 50, 50)
+        self.conv_2 = nn.Conv1d(50, 10, 50)
+        self.conn   = nn.Linear(6340, CTX_SIZE)
 
     def forward(self, x):
         x = x.view(x.shape[0], 1, -1)
 
         x = self.conv_1(x)
-        x = nn.MaxPool1d(5)(x)
+        x = nn.MaxPool1d(10)(x)
         x = self.conv_2(x)
-        x = nn.MaxPool1d(5)(x)
-        x = self.conv_3(x)
-        x = nn.MaxPool1d(5)(x)
+        x = nn.MaxPool1d(10)(x)
 
         x = x.view(x.shape[0], -1)
         x = self.conn(x)
@@ -122,7 +119,7 @@ def load_all():
 
     print("Load old state? [Y/n] ", flush=True, end="")
 
-    if os.path.isfile(LOAD_PATH) and input().lower() == "y":
+    if os.path.isfile(LOAD_PATH) and input().lower() != "n":
         print("Loading old state")
         state = torch.load(LOAD_PATH)
 
