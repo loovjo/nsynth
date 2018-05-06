@@ -38,17 +38,18 @@ QUALITIES = [
         ]
 
 class Sound:
-    def __init__(self, sound_id, sound, pitch, velocity, family, timbre, quality):
+    def __init__(self, sound_id, path, pitch, velocity, family, timbre, quality):
         self.sound_id = sound_id
-        self.sound = sound
+        self.path = path
         self.pitch = pitch
         self.velocity = velocity
         self.family = family
         self.timbre = timbre
         self.quality = quality
     def __str__(self):
-        return "Sound(id={}, pitch={}, velocity={}, family={}, timbre={}, quality={})".format(
+        return "Sound(id={}, path=.../{} pitch={}, velocity={}, family={}, timbre={}, quality={})".format(
                 repr(self.sound_id),
+                os.path.basename(self.path),
                 self.pitch,
                 self.velocity,
                 INSTRUMENT_NAMES[self.family],
@@ -56,6 +57,9 @@ class Sound:
                 str([QUALITIES[x] + "(" + str(x) + ")" for x in self.quality])
                 )
 
+    def get_sound(self):
+        sound, _ = sf.read(self.path)
+        return sound
 
 def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
     if not silent:
@@ -77,14 +81,12 @@ def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
 
         i += 1
         filename = os.path.join(path, "audio", sound_id + ".wav")
-        sound, _ = sf.read(filename)
 
         sample_rate = props["sample_rate"]
-        sample_length = len(sound)
 
         data.append(Sound(
             sound_id,
-            sound,
+            filename,
             props["pitch"],
             props["velocity"],
             props["instrument_family"],
@@ -95,7 +97,7 @@ def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
         if i >= amount and amount > 0:
             break
 
-    return (data, sample_rate, sample_length)
+    return (data, sample_rate, len(data[0].get_sound()))
 
 if __name__ == "__main__":
     import sounddevice as sd
@@ -105,4 +107,4 @@ if __name__ == "__main__":
 
     for sound in data[:20]:
         print(str(sound))
-        sd.play(sound.sound, sample_rate, blocking=True)
+        sd.play(sound.get_sound(), sample_rate, blocking=True)

@@ -13,7 +13,7 @@ _, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
 
 CTX_SIZE = 500
 SAMPLE_GEN = 400
-BATCH_SIZE = 50
+BATCH_SIZE = 5
 
 SAVE_PATH = LOAD_PATH = "ai.pt"
 
@@ -68,7 +68,7 @@ def test_show(amount=10):
     import matplotlib.pyplot as plt
 
 
-    sounds = [x.sound for x in data[:amount]]
+    sounds = [x.get_sound() for x in data[:amount]]
     print(data[0])
     sound = Variable(torch.Tensor(sounds))
     print(sound)
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         dec_opt.zero_grad()
 
         random.shuffle(data)
-        sounds = [x.sound for x in data[:BATCH_SIZE]]
+        sounds = [x.get_sound() for x in data[:BATCH_SIZE]]
         sound = Variable(torch.Tensor(sounds))
 
         loss = Variable(torch.zeros(1))
