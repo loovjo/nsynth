@@ -60,7 +60,7 @@ class Decoder(nn.Module):
         return out, new_ctx
 
 
-def test_show(amount=10):
+def test_show(amount=10, force_teacher=True):
     import sounddevice as sd
     import matplotlib.pyplot as plt
 
@@ -72,13 +72,19 @@ def test_show(amount=10):
     ctx = enc(sound)
     print(ctx)
 
-    result = np.zeros((len(sounds), 1))
+    if force_teacher:
+        result = np.zeros((len(sounds), 1))
+    else:
+        result = sound[:,:SAMPLE_GEN].data.numpy()
     for i in range(0, SAMPLE_LENGTH, SAMPLE_GEN):
         if i + SAMPLE_GEN > len(sound[0]):
             break
 
         print(i, ":", i + SAMPLE_GEN)
-        last_out = sound[:, i:i+SAMPLE_GEN].contiguous()
+        if force_teacher:
+            last_out = sound[:, i:i+SAMPLE_GEN].contiguous()
+        else:
+            last_out = Variable(torch.Tensor(result[:,i:i+SAMPLE_GEN]))
         out, ctx = dec(last_out, ctx)
         result = np.concatenate((result, out.data.numpy()), axis=1)
 
@@ -131,6 +137,13 @@ def load_all():
         train_loss_history = state["train_loss_history"]
 
     data, _, _ = dataloader.load_data()
+
+
+def show_loss():
+    import matplotlib.pyplot as plt
+    plt.plot(train_loss_history)
+    plt.show()
+
 
 if __name__ == "__main__":
     load_all()
@@ -192,5 +205,3 @@ if __name__ == "__main__":
 
     print("Done")
 
-
-    test_show()
