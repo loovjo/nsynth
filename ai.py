@@ -15,6 +15,8 @@ CTX_SIZE = 500
 SAMPLE_GEN = 400
 BATCH_SIZE = 15
 
+TEACHER_FORCE_RATE = 0.1
+
 SAVE_PATH = LOAD_PATH = "ai.pt"
 
 class Encoder(nn.Module):
@@ -164,6 +166,8 @@ if __name__ == "__main__":
 
         loss = Variable(torch.zeros(1))
 
+        last_out = None
+
         ctx = enc(sound)
         print("encoded")
 
@@ -172,10 +176,11 @@ if __name__ == "__main__":
             if i + SAMPLE_GEN > len(sound[0]):
                 break
 
-            if i >= SAMPLE_GEN:
-                last_out = sound[:, i-SAMPLE_GEN:i].contiguous()
-            else:
-                last_out = Variable(torch.zeros(len(sound), SAMPLE_GEN))
+            if random.random() < TEACHER_FORCE_RATE or last_out is None:
+                if i >= SAMPLE_GEN:
+                    last_out = sound[:, i-SAMPLE_GEN:i].contiguous()
+                else:
+                    last_out = Variable(torch.zeros(len(sound), SAMPLE_GEN))
 
             wanted = sound[:, i:i+SAMPLE_GEN]
 
@@ -183,6 +188,8 @@ if __name__ == "__main__":
 
             batch_loss = crit(got, wanted)
             loss += batch_loss
+
+            last_out = got
 
         loss /= (SAMPLE_LENGTH / SAMPLE_GEN)
 
