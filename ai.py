@@ -13,6 +13,7 @@ _, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
 
 CTX_SIZE = 500
 SAMPLE_GEN = 400
+
 BATCH_SIZE = 15
 
 TEACHER_FORCE_RATE = 0.1
@@ -70,6 +71,10 @@ def test_show(amount=10, force_teacher=True):
     sounds = [x.get_sound() for x in data[:amount]]
     print(data[0])
     sound = Variable(torch.Tensor(sounds))
+    # Normalize
+    sound /= sound.data.std()
+    print(sound.data.std())
+
     print(sound)
     ctx = enc(sound)
     print(ctx)
@@ -161,50 +166,63 @@ if __name__ == "__main__":
         dec_opt.zero_grad()
 
         random.shuffle(data)
-        sounds = [x.get_sound() for x in data[:BATCH_SIZE]]
-        sound = Variable(torch.Tensor(sounds))
 
-        loss = Variable(torch.zeros(1))
+        tot_loss = 0
+        batch_nr = 0
+        for batch in range(0, len(data), BATCH_SIZE):
+            print("Batch {} of {}: ".format(batch_nr, len(data) // BATCH_SIZE, end="", flush=True))
+            sounds = [x.get_sound() for x in data[:BATCH_SIZE]]
+            sound = Variable(torch.Tensor(sounds))
+            # Normalize
+            sound /= sound.data.std()
 
-        last_out = None
+            loss = Variable(torch.zeros(1))
 
-        ctx = enc(sound)
-        print("encoded")
+            last_out = None
 
-        for i in range(0, SAMPLE_LENGTH, SAMPLE_GEN):
-            print(i - SAMPLE_GEN, ":", i, ":", i + SAMPLE_GEN)
-            if i + SAMPLE_GEN > len(sound[0]):
-                break
+            print("encoding...", end="", flush=True);
+            ctx = enc(sound)
+            print(" - DONE. Generating...", end="", flush=True)
 
-            if random.random() < TEACHER_FORCE_RATE or last_out is None:
-                if i >= SAMPLE_GEN:
-                    last_out = sound[:, i-SAMPLE_GEN:i].contiguous()
-                else:
-                    last_out = Variable(torch.zeros(len(sound), SAMPLE_GEN))
+            for i in range(0, SAMPLE_LENGTH, SAMPLE_GEN):
+                if i + SAMPLE_GEN > len(sound[0]):
+                    break
 
-            wanted = sound[:, i:i+SAMPLE_GEN]
+                if random.random() < TEACHER_FORCE_RATE or last_out is None:
+                    if i >= SAMPLE_GEN:
+                        last_out = sound[:, i-SAMPLE_GEN:i].contiguous()
+                    else:
+                        last_out = Variable(torch.zeros(len(sound), SAMPLE_GEN))
 
-            got, ctx = dec(last_out, ctx)
+                wanted = sound[:, i:i+SAMPLE_GEN]
 
-            batch_loss = crit(got, wanted)
-            loss += batch_loss
+                got, ctx = dec(last_out, ctx)
 
-            last_out = got
+                batch_loss = crit(got, wanted)
+                loss += batch_loss
 
-        loss /= (SAMPLE_LENGTH / SAMPLE_GEN)
+                last_out = got
 
-        print("Loss =", loss.data[0])
+            loss /= (SAMPLE_LENGTH / SAMPLE_GEN)
 
-        print("Backward")
-        loss.backward()
-        print("Step enc")
-        enc_opt.step()
-        print("Step dec")
-        dec_opt.step()
+            print(" - DONE. Loss: {:.5f}. Backpropping...".format(loss.data[0]), end="", flush=True)
+
+            loss.backward()
+            print(" - DONE. Stepping enc...", end="", flush=True)
+            enc_opt.step()
+            print(" - DONE. Stepping dec...", end="", flush=True)
+            dec_opt.step()
+            print(" - DONE")
+
+            tot_loss += loss.data[0]
+            batch_nr += 1
+
+        tot_loss /= (len(data) / BATCH_SIZE)
+
+        print("Epoch loss: {}", tot_loss)
+        train_loss_history.append(tot_loss.data[0])
 
         print("Saving")
-        train_loss_history.append(loss.data[0])
-
         EPOCH += 1
 
         save()
