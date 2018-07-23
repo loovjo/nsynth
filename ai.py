@@ -108,10 +108,10 @@ def test_show(amount=10, force_teacher=True):
 
 def save():
     save_dict = {
-            "enc": enc,
-            "enc_opt": enc_opt,
-            "dec": dec,
-            "dec_opt": dec_opt,
+            "enc": enc.state_dict(),
+            "enc_opt": enc_opt.state_dict(),
+            "dec": dec.state_dict(),
+            "dec_opt": dec_opt.state_dict(),
             "epoch": EPOCH,
             "train_loss_history": train_loss_history,
             }
@@ -136,10 +136,10 @@ def load_all():
         print("Loading old state")
         state = torch.load(LOAD_PATH)
 
-        enc = state["enc"]
-        enc_opt = state["enc_opt"]
-        dec = state["dec"]
-        dec_opt = state["dec_opt"]
+        enc.load_state_dict(state["enc"])
+        enc_opt.load_state_dict(state["enc_opt"])
+        dec.load_state_dict(state["dec"])
+        dec_opt.load_state_dict(state["dec_opt"])
         EPOCH = state["epoch"]
         train_loss_history = state["train_loss_history"]
 
@@ -170,8 +170,12 @@ if __name__ == "__main__":
         tot_loss = 0
         batch_nr = 0
         for batch in range(0, len(data), BATCH_SIZE):
-            print("Batch {} of {}: ".format(batch_nr, len(data) // BATCH_SIZE, end="", flush=True))
-            sounds = [x.get_sound() for x in data[:BATCH_SIZE]]
+            print("Batch {} of {}: ".format(batch_nr, len(data) // BATCH_SIZE), end="", flush=True)
+            if batch + BATCH_SIZE > len(data):
+                sounds = [x.get_sound() for x in data[batch : ]];
+            else:
+                sounds = [x.get_sound() for x in data[batch : batch + BATCH_SIZE]]
+
             sound = Variable(torch.Tensor(sounds))
             # Normalize
             sound /= sound.data.std()
@@ -212,7 +216,9 @@ if __name__ == "__main__":
             enc_opt.step()
             print(" - DONE. Stepping dec...", end="", flush=True)
             dec_opt.step()
-            print(" - DONE")
+            print(" - DONE. Saving...", end="", flush=True)
+            save()
+            print(" - DONE.")
 
             tot_loss += loss.data[0]
             batch_nr += 1
@@ -225,7 +231,6 @@ if __name__ == "__main__":
         print("Saving")
         EPOCH += 1
 
-        save()
 
 
     print("Done")
