@@ -162,20 +162,21 @@ if __name__ == "__main__":
 
     while True:
 
-        print("Epoch", EPOCH, "training")
-        enc_opt.zero_grad()
-        dec_opt.zero_grad()
-
         random.shuffle(data)
 
         tot_loss = 0
         batch_nr = 0
 
         start = time.time()
-        iter = 0
         print()
         for batch in range(0, len(data), BATCH_SIZE):
-            print("\033[1A\033[KBatch {} of {}: ".format(batch_nr, len(data) // BATCH_SIZE), end="", flush=True)
+            print(
+                "Epoch {} batch {} of {} ({:.2f}%): ".format(
+                    EPOCH,
+                    batch_nr,
+                    len(data) // BATCH_SIZE,
+                    (batch + BATCH_SIZE) / len(data) * 100
+                ))
             if batch + BATCH_SIZE > len(data):
                 sounds = [x.get_sound() for x in data[batch : ]];
             else:
@@ -189,9 +190,9 @@ if __name__ == "__main__":
 
             last_out = None
 
-            print("encoding...", end="", flush=True);
+            print("\tEncoding...")
             ctx = enc(sound)
-            print(" - DONE. Generating...", end="", flush=True)
+            print("\tGenerating...")
 
             for i in range(0, SAMPLE_LENGTH, SAMPLE_GEN):
                 if i + SAMPLE_GEN > len(sound[0]):
@@ -214,31 +215,48 @@ if __name__ == "__main__":
 
             loss /= (SAMPLE_LENGTH / SAMPLE_GEN)
 
-            print(" - DONE. Loss: {:.5f}. Backpropping...".format(loss.data[0]), end="", flush=True)
+            print("\tLoss: {:.5f}. Backpropping...".format(loss.data[0]))
+
+            enc_opt.zero_grad()
+            dec_opt.zero_grad()
 
             loss.backward()
-            print(" - DONE. Stepping enc...", end="", flush=True)
+            print("\tStepping dec...")
             enc_opt.step()
-            print(" - DONE. Stepping dec...", end="", flush=True)
+            print("\tStepping enc...")
             dec_opt.step()
 
-            if iter % 20 == 0:
-                print(" - DONE. Saving...", end="", flush=True)
+            if batch_nr % 10 == 0:
+                print("\tSaving...", end="", flush=True)
                 save()
 
-            iter += 1
-
-            print(" - DONE.")
-
             tot_loss += loss.data[0]
+
             batch_nr += 1
+            time_per_batch = (time.time() - start) / batch_nr
+            time_left = time_per_batch * (len(data) // BATCH_SIZE - batch_nr)
+
+            print("\tDone")
+            print(
+                "\tTime left: {:02d}:{:02d}:{:02d}".format(
+                    int(time_left // 3600),
+                    int((time_left // 60) % 60),
+                    int(time_left) % 60)
+                )
 
         tot_loss /= (len(data) / BATCH_SIZE)
 
         print("Epoch loss: {}".format(tot_loss))
         train_loss_history.append(tot_loss)
 
-        print("Took {}s", time.time() - start)
+        took = time.time() - start
+        print(
+            "Epoch {} took {:02d}:{:02d}:{:02d}".format(
+                EPOCH,
+                int(took // 3600),
+                int((took // 60) % 60),
+                int(took) % 60)
+            )
 
         print("Saving")
         save()
