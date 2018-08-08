@@ -1,5 +1,6 @@
 import os
 import random
+import time
 
 import torch
 import torch.nn as nn
@@ -169,8 +170,12 @@ if __name__ == "__main__":
 
         tot_loss = 0
         batch_nr = 0
+
+        start = time.time()
+        iter = 0
+        print()
         for batch in range(0, len(data), BATCH_SIZE):
-            print("Batch {} of {}: ".format(batch_nr, len(data) // BATCH_SIZE), end="", flush=True)
+            print("\033[1A\033[KBatch {} of {}: ".format(batch_nr, len(data) // BATCH_SIZE), end="", flush=True)
             if batch + BATCH_SIZE > len(data):
                 sounds = [x.get_sound() for x in data[batch : ]];
             else:
@@ -216,8 +221,13 @@ if __name__ == "__main__":
             enc_opt.step()
             print(" - DONE. Stepping dec...", end="", flush=True)
             dec_opt.step()
-            print(" - DONE. Saving...", end="", flush=True)
-            save()
+
+            if iter % 20 == 0:
+                print(" - DONE. Saving...", end="", flush=True)
+                save()
+
+            iter += 1
+
             print(" - DONE.")
 
             tot_loss += loss.data[0]
@@ -225,10 +235,13 @@ if __name__ == "__main__":
 
         tot_loss /= (len(data) / BATCH_SIZE)
 
-        print("Epoch loss: {}", tot_loss)
-        train_loss_history.append(tot_loss.data[0])
+        print("Epoch loss: {}".format(tot_loss))
+        train_loss_history.append(tot_loss)
+
+        print("Took {}s", time.time() - start)
 
         print("Saving")
+        save()
         EPOCH += 1
 
 
