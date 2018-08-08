@@ -15,7 +15,7 @@ _, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
 CTX_SIZE = 500
 SAMPLE_GEN = 400
 
-BATCH_SIZE = 15
+BATCH_SIZE = 20
 
 TEACHER_FORCE_RATE = 0.1
 
