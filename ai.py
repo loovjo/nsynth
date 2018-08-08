@@ -15,7 +15,7 @@ _, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
 CTX_SIZE = 500
 SAMPLE_GEN = 400
 
-BATCH_SIZE = 20
+BATCH_SIZE = 10
 
 TEACHER_FORCE_RATE = 0.1
 
@@ -46,11 +46,11 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.last_proc = nn.Linear(SAMPLE_GEN, 100)
-        self.ctx_proc  = nn.Linear(CTX_SIZE, 100)
-        self.proc_both = nn.Linear(200, 500)
-        self.proc_out  = nn.Linear(500, SAMPLE_GEN)
-        self.proc_ctx  = nn.Linear(500, CTX_SIZE)
+        self.last_proc = nn.Linear(SAMPLE_GEN, 30)
+        self.ctx_proc  = nn.Linear(CTX_SIZE, 30)
+        self.proc_both = nn.Linear(60, 100)
+        self.proc_out  = nn.Linear(100, SAMPLE_GEN)
+        self.proc_ctx  = nn.Linear(100, CTX_SIZE)
 
     def forward(self, last, ctx):
         last = self.last_proc(last)
