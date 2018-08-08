@@ -227,7 +227,7 @@ if __name__ == "__main__":
             dec_opt.step()
 
             if batch_nr % 10 == 0:
-                print("\tSaving...", end="", flush=True)
+                print("\tSaving...")
                 save()
 
             tot_loss += loss.data[0]
