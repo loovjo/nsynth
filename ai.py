@@ -221,13 +221,17 @@ if __name__ == "__main__":
             dec_opt.zero_grad()
 
             loss.backward()
+
+            nn.utils.clip_grad_norm(enc.parameters(), 10)
+            nn.utils.clip_grad_norm(dec.parameters(), 10)
+
             print("\tStepping dec...")
             enc_opt.step()
             print("\tStepping enc...")
             dec_opt.step()
 
             if batch_nr % 10 == 0:
-                print("\tSaving...", end="", flush=True)
+                print("\tSaving...")
                 save()
 
             tot_loss += loss.data[0]
