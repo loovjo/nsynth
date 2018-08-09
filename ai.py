@@ -221,6 +221,10 @@ if __name__ == "__main__":
             dec_opt.zero_grad()
 
             loss.backward()
+
+            nn.utils.clip_grad_norm(enc.parameters(), 10)
+            nn.utils.clip_grad_norm(dec.parameters(), 10)
+
             print("\tStepping dec...")
             enc_opt.step()
             print("\tStepping enc...")
