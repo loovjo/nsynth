@@ -12,7 +12,7 @@ import dataloader
 
 _, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
 
-CTX_SIZE = 500
+CTX_SIZE = 100
 SAMPLE_GEN = 400
 
 BATCH_SIZE = 10
