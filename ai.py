@@ -34,11 +34,15 @@ class Encoder(nn.Module):
 
         x = self.conv_1(x)
         x = nn.MaxPool1d(10)(x)
+        x = nn.functional.sigmoid(x)
+
         x = self.conv_2(x)
         x = nn.MaxPool1d(10)(x)
+        x = nn.functional.sigmoid(x)
 
         x = x.view(x.shape[0], -1)
         x = self.conn(x)
+        x = nn.functional.sigmoid(x)
 
         return x
 
@@ -46,9 +50,9 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.last_proc = nn.Linear(SAMPLE_GEN, 30)
-        self.ctx_proc  = nn.Linear(CTX_SIZE, 30)
-        self.proc_both = nn.Linear(60, 100)
+        self.last_proc = nn.Linear(SAMPLE_GEN, 60)
+        self.ctx_proc  = nn.Linear(CTX_SIZE, 60)
+        self.proc_both = nn.Linear(120, 100)
         self.proc_out  = nn.Linear(100, SAMPLE_GEN)
         self.proc_ctx  = nn.Linear(100, CTX_SIZE)
 
@@ -56,10 +60,15 @@ class Decoder(nn.Module):
         last = self.last_proc(last)
         ctx = self.ctx_proc(ctx)
 
+
         combined = torch.cat((last, ctx), dim=1)
         proc = self.proc_both(combined)
+
         out = self.proc_out(proc)
+        out = nn.functional.sigmoid(out)
+
         new_ctx = self.proc_ctx(proc)
+        new_ctx = nn.functional.sigmoid(new_ctx)
 
         return out, new_ctx
 
