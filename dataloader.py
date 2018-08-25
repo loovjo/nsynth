@@ -1,8 +1,13 @@
 import os
 import random
+import numpy as np
 
 import json
 import soundfile as sf
+
+BLOCK_SIZE = 500
+SAMPLE_RATE = 16000
+SAMPLE_LENGTH = 4
 
 INSTRUMENT_NAMES = [
         "bass",
@@ -37,6 +42,24 @@ QUALITIES = [
         "tempo-synced",
         ]
 
+
+def slide_fft(data, bs=BLOCK_SIZE):
+    res = []
+    for i in range(0, len(data), bs):
+        slide = data[i:i+bs]
+        if len(slide) < bs:
+            continue
+        res.append(np.fft.fft(slide))
+    return np.array(res)
+
+
+def slide_ifft(data, bs=BLOCK_SIZE):
+    res = []
+    for slide in data:
+        res.append(np.fft.ifft(slide))
+    return np.array(res).reshape(-1)
+
+
 class Sound:
     def __init__(self, sound_id, path, pitch, velocity, family, timbre, quality):
         self.sound_id = sound_id
@@ -58,8 +81,30 @@ class Sound:
                 )
 
     def get_sound(self):
-        sound, _ = sf.read(self.path)
+        sound, sample_rate = sf.read(self.path)
+        assert len(sound) == SAMPLE_RATE * SAMPLE_LENGTH
+
         return sound
+
+def spectrums(sounds):
+    freqs = np.array([slide_fft(x) for x in sounds])
+
+    re_pos, re_neg, im_pos, im_neg = (
+        np.real(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(0, None),
+        -np.real(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(None, 0),
+        np.imag(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(0, None),
+        -np.imag(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(None, 0),
+    )
+
+    inp = np.log(np.concatenate([re_pos, re_neg, im_pos, im_neg], axis=1) + 1)
+    return inp
+
+def sounds(spectrums):
+    delog = np.exp(spectrums) - 1
+    fourier = delog[:,0] - delog[:,1] + 1j * delog[:,2] - 1j * delog[:,3]
+
+    result = np.array([slide_ifft(x) for x in fourier])
+    return result
 
 def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
     if not silent:
@@ -82,7 +127,7 @@ def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
         i += 1
         filename = os.path.join(path, "audio", sound_id + ".wav")
 
-        sample_rate = props["sample_rate"]
+        assert props["sample_rate"] == SAMPLE_RATE
 
         data.append(Sound(
             sound_id,
@@ -97,7 +142,7 @@ def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
         if i >= amount and amount > 0:
             break
 
-    return (data, sample_rate, len(data[0].get_sound()))
+    return data
 
 if __name__ == "__main__":
     import sounddevice as sd

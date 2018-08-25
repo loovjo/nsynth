@@ -10,14 +10,9 @@ import numpy as np
 
 import dataloader
 
-_, SAMPLE_RATE, SAMPLE_LENGTH = dataloader.load_data(amount=1, silent=True)
-
-CTX_SIZE = 100
-SAMPLE_GEN = 400
+DATA = dataloader.load_data()
 
 BATCH_SIZE = 10
-
-TEACHER_FORCE_RATE = 0.1
 
 SAVE_PATH = LOAD_PATH = "ai.pt"
 
@@ -25,24 +20,18 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.conv_1 = nn.Conv1d(1, 50, 50)
-        self.conv_2 = nn.Conv1d(50, 10, 50)
-        self.conn   = nn.Linear(6340, CTX_SIZE)
+        self.conv_1 = nn.Conv2d(4, 50, 5)
+        self.conv_2 = nn.Conv2d(50, 20, 5)
+        self.conv_3 = nn.Conv2d(20, 1, 4)
 
     def forward(self, x):
-        x = x.view(x.shape[0], 1, -1)
-
         x = self.conv_1(x)
-        x = nn.MaxPool1d(10)(x)
-        x = nn.functional.sigmoid(x)
-
+        x = nn.MaxPool2d(4)(x)
+        x = nn.functional.relu(x)
         x = self.conv_2(x)
-        x = nn.MaxPool1d(10)(x)
+        x = nn.MaxPool2d(3)(x)
         x = nn.functional.sigmoid(x)
-
-        x = x.view(x.shape[0], -1)
-        x = self.conn(x)
-        x = nn.functional.sigmoid(x)
+        x = self.conv_3(x)
 
         return x
 
@@ -50,71 +39,66 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.last_proc = nn.Linear(SAMPLE_GEN, 60)
-        self.ctx_proc  = nn.Linear(CTX_SIZE, 60)
-        self.proc_both = nn.Linear(120, 100)
-        self.proc_out  = nn.Linear(100, SAMPLE_GEN)
-        self.proc_ctx  = nn.Linear(100, CTX_SIZE)
+        self.deconv_1 = nn.ConvTranspose2d(1, 20, 4)
+        self.deconv_2 = nn.ConvTranspose2d(20, 50, 5)
+        self.deconv_3 = nn.ConvTranspose2d(50, 4, 5)
 
-    def forward(self, last, ctx):
-        last = self.last_proc(last)
-        ctx = self.ctx_proc(ctx)
+    def forward(self, x):
+        x = self.deconv_1(x)
+        x = nn.Upsample(scale_factor=3)(x)
+        x = nn.functional.sigmoid(x)
+        x = self.deconv_2(x)
+        x = nn.Upsample(scale_factor=4)(x)
+        x = self.deconv_3(x)
+        x = nn.functional.relu(x)
 
-
-        combined = torch.cat((last, ctx), dim=1)
-        proc = self.proc_both(combined)
-
-        out = self.proc_out(proc)
-        out = nn.functional.sigmoid(out)
-
-        new_ctx = self.proc_ctx(proc)
-        new_ctx = nn.functional.sigmoid(new_ctx)
-
-        return out, new_ctx
+        return x
 
 
-def test_show(amount=10, force_teacher=True):
+def test_show(amount=4):
     import sounddevice as sd
     import matplotlib.pyplot as plt
 
 
-    sounds = [x.get_sound() for x in data[:amount]]
-    print(data[0])
-    sound = Variable(torch.Tensor(sounds))
-    # Normalize
-    sound /= sound.data.std()
-    print(sound.data.std())
+    sounds = [x.get_sound() for x in DATA[:amount]]
 
-    print(sound)
-    ctx = enc(sound)
-    print(ctx)
+    freqs = np.array([dataloader.slide_fft(x) for x in sounds])
+    re_pos, re_neg, im_pos, im_neg = (
+        np.real(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(0, None),
+        -np.real(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(None, 0),
+        np.imag(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(0, None),
+        -np.imag(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(None, 0),
+    )
 
-    if force_teacher:
-        result = np.zeros((len(sounds), 1))
-    else:
-        result = sound[:,:SAMPLE_GEN].data.numpy()
-    for i in range(0, SAMPLE_LENGTH, SAMPLE_GEN):
-        if i + SAMPLE_GEN > len(sound[0]):
-            break
+    inp = np.log(np.concatenate([re_pos, re_neg, im_pos, im_neg], axis=1) + 1)
 
-        print(i, ":", i + SAMPLE_GEN)
-        if force_teacher:
-            last_out = sound[:, i:i+SAMPLE_GEN].contiguous()
-        else:
-            last_out = Variable(torch.Tensor(result[:,i:i+SAMPLE_GEN]))
-        out, ctx = dec(last_out, ctx)
-        result = np.concatenate((result, out.data.numpy()), axis=1)
+    encoded = enc(Variable(torch.Tensor(inp)))
+    decoded = dec(encoded)
+
+    print("Despectruming")
+    decoded_sound = np.real(dataloader.sounds(decoded.data.numpy()))
 
     print("Done")
-    plt.plot(result.T)
-    plt.show()
 
-    for i, x in enumerate(result):
+    for i, x in enumerate(decoded):
+        for j in range(4):
+            plt.subplot(2, 5, j + 1)
+            plt.imshow(inp[i, j])
+
+        plt.subplot(2, 5, 5)
         plt.plot(sounds[i])
-        plt.plot(x)
+
+        for j in range(4):
+            plt.subplot(2, 5, j + 6)
+            plt.imshow(decoded.data[i, j])
+
+        plt.subplot(2, 5, 10)
+        plt.plot(decoded_sound[i])
+
         plt.show()
+
         sd.play(sounds[i], blocking=True)
-        sd.play(x, blocking=True)
+        sd.play(decoded_sound[i], blocking=True)
 
 def save():
     save_dict = {
@@ -129,7 +113,7 @@ def save():
     torch.save(save_dict, SAVE_PATH)
 
 def load_all():
-    global enc, dec, enc_opt, dec_opt, EPOCH, train_loss_history, data
+    global enc, dec, enc_opt, dec_opt, EPOCH, train_loss_history
 
     enc = Encoder()
     dec = Decoder()
@@ -153,9 +137,6 @@ def load_all():
         EPOCH = state["epoch"]
         train_loss_history = state["train_loss_history"]
 
-    data, _, _ = dataloader.load_data()
-
-
 def show_loss():
     import matplotlib.pyplot as plt
     plt.plot(train_loss_history)
@@ -165,65 +146,50 @@ def show_loss():
 if __name__ == "__main__":
     load_all()
 
-
     # Train
     crit = nn.MSELoss()
 
     while True:
 
-        random.shuffle(data)
+        random.shuffle(DATA)
 
         tot_loss = 0
         batch_nr = 0
 
         start = time.time()
         print()
-        for batch in range(0, len(data), BATCH_SIZE):
+        for batch in range(0, len(DATA), BATCH_SIZE):
             print(
                 "Epoch {} batch {} of {} ({:.2f}%): ".format(
                     EPOCH,
                     batch_nr,
-                    len(data) // BATCH_SIZE,
-                    (batch + BATCH_SIZE) / len(data) * 100
+                    len(DATA) // BATCH_SIZE,
+                    (batch + BATCH_SIZE) / len(DATA) * 100
                 ))
-            if batch + BATCH_SIZE > len(data):
-                sounds = [x.get_sound() for x in data[batch : ]];
+
+            if batch + BATCH_SIZE > len(DATA):
+                sounds = [x.get_sound() for x in DATA[batch : ]];
             else:
-                sounds = [x.get_sound() for x in data[batch : batch + BATCH_SIZE]]
+                sounds = [x.get_sound() for x in DATA[batch : batch + BATCH_SIZE]]
 
-            sound = Variable(torch.Tensor(sounds))
-            # Normalize
-            sound /= sound.data.std()
+            freqs = np.array([dataloader.slide_fft(x) for x in sounds])
 
-            loss = Variable(torch.zeros(1))
+            re_pos, re_neg, im_pos, im_neg = (
+                np.real(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(0, None),
+                -np.real(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(None, 0),
+                np.imag(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(0, None),
+                -np.imag(freqs).reshape(freqs.shape[0], 1, *freqs.shape[1:]).clip(None, 0),
+            )
 
-            last_out = None
+            inp = np.log(np.concatenate([re_pos, re_neg, im_pos, im_neg], axis=1) + 1)
+            print(inp.min(), inp.max())
 
             print("\tEncoding...")
-            ctx = enc(sound)
-            print("\tGenerating...")
+            encoded = enc(Variable(torch.Tensor(inp)))
+            print("\tDecoding...")
+            decoded = dec(encoded)
 
-            for i in range(0, SAMPLE_LENGTH, SAMPLE_GEN):
-                if i + SAMPLE_GEN > len(sound[0]):
-                    break
-
-                if random.random() < TEACHER_FORCE_RATE or last_out is None:
-                    if i >= SAMPLE_GEN:
-                        last_out = sound[:, i-SAMPLE_GEN:i].contiguous()
-                    else:
-                        last_out = Variable(torch.zeros(len(sound), SAMPLE_GEN))
-
-                wanted = sound[:, i:i+SAMPLE_GEN]
-
-                got, ctx = dec(last_out, ctx)
-
-                batch_loss = crit(got, wanted)
-                loss += batch_loss
-
-                last_out = got
-
-            loss /= (SAMPLE_LENGTH / SAMPLE_GEN)
-
+            loss = crit(decoded, Variable(torch.Tensor(inp)))
             print("\tLoss: {:.5f}. Backpropping...".format(loss.data[0]))
 
             enc_opt.zero_grad()
@@ -247,7 +213,7 @@ if __name__ == "__main__":
 
             batch_nr += 1
             time_per_batch = (time.time() - start) / batch_nr
-            time_left = time_per_batch * (len(data) // BATCH_SIZE - batch_nr)
+            time_left = time_per_batch * (len(DATA) // BATCH_SIZE - batch_nr)
 
             print("\tDone")
             print(
@@ -257,7 +223,7 @@ if __name__ == "__main__":
                     int(time_left) % 60)
                 )
 
-        tot_loss /= (len(data) / BATCH_SIZE)
+        tot_loss /= (len(DATA) / BATCH_SIZE)
 
         print("Epoch loss: {}".format(tot_loss))
         train_loss_history.append(tot_loss)
