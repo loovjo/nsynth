@@ -21,8 +21,7 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
 
         self.conv_1 = nn.Conv2d(4, 50, 5)
-        self.conv_2 = nn.Conv2d(50, 20, 5)
-        self.conv_3 = nn.Conv2d(20, 1, 4)
+        self.conv_2 = nn.Conv2d(50, 1, 5)
 
     def forward(self, x):
         x = self.conv_1(x)
@@ -30,8 +29,6 @@ class Encoder(nn.Module):
         x = nn.functional.relu(x)
         x = self.conv_2(x)
         x = nn.MaxPool2d(3)(x)
-        x = nn.functional.sigmoid(x)
-        x = self.conv_3(x)
 
         return x
 
@@ -39,14 +36,11 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.deconv_1 = nn.ConvTranspose2d(1, 20, 4)
-        self.deconv_2 = nn.ConvTranspose2d(20, 50, 5)
+        self.deconv_2 = nn.ConvTranspose2d(1, 50, 5)
         self.deconv_3 = nn.ConvTranspose2d(50, 4, 5)
 
     def forward(self, x):
-        x = self.deconv_1(x)
         x = nn.Upsample(scale_factor=3)(x)
-        x = nn.functional.sigmoid(x)
         x = self.deconv_2(x)
         x = nn.Upsample(scale_factor=4)(x)
         x = self.deconv_3(x)
@@ -118,8 +112,8 @@ def load_all():
     enc = Encoder()
     dec = Decoder()
 
-    enc_opt = optim.SGD(enc.parameters(), lr=0.1, momentum=0.1)
-    dec_opt = optim.SGD(dec.parameters(), lr=0.1, momentum=0.1)
+    enc_opt = optim.SGD(enc.parameters(), lr=0.1, momentum=0.4)
+    dec_opt = optim.SGD(dec.parameters(), lr=0.1, momentum=0.4)
     EPOCH = 0
     train_loss_history = []
 
