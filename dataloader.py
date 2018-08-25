@@ -142,6 +142,7 @@ def load_data(path=os.path.expanduser("~/nsynth/"), amount=-1, silent=False):
         if i >= amount and amount > 0:
             break
 
+    random.shuffle(data)
     return data
 
 if __name__ == "__main__":
