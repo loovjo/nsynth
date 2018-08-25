@@ -176,7 +176,6 @@ if __name__ == "__main__":
             )
 
             inp = np.log(np.concatenate([re_pos, re_neg, im_pos, im_neg], axis=1) + 1)
-            print(inp.min(), inp.max())
 
             print("\tEncoding...")
             encoded = enc(Variable(torch.Tensor(inp)))
