@@ -20,15 +20,17 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.conv_1 = nn.Conv2d(4, 50, 5)
-        self.conv_2 = nn.Conv2d(50, 1, 5)
+        self.conv = nn.Conv2d(4, 5, 9)
+        self.lin  = nn.Linear(18450, 500)
 
     def forward(self, x):
-        x = self.conv_1(x)
+        x = self.conv(x)
         x = nn.MaxPool2d(4)(x)
         x = nn.functional.relu(x)
-        x = self.conv_2(x)
-        x = nn.MaxPool2d(3)(x)
+        x = x.view(x.shape[0], -1)
+
+        x = self.lin(x)
+        x = nn.functional.relu(x)
 
         return x
 
@@ -36,14 +38,16 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.deconv_2 = nn.ConvTranspose2d(1, 50, 5)
-        self.deconv_3 = nn.ConvTranspose2d(50, 4, 5)
+        self.delin  = nn.Linear(500, 18450)
+        self.deconv = nn.ConvTranspose2d(5, 4, 9)
 
     def forward(self, x):
-        x = nn.Upsample(scale_factor=3)(x)
-        x = self.deconv_2(x)
+        x = self.delin(x)
+        x = nn.functional.relu(x)
+        x = x.view(x.shape[0], 5, 30, 123)
+
         x = nn.Upsample(scale_factor=4)(x)
-        x = self.deconv_3(x)
+        x = self.deconv(x)
         x = nn.functional.relu(x)
 
         return x
