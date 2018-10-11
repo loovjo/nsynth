@@ -20,15 +20,20 @@ class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.conv = nn.Conv2d(4, 5, 9)
-        self.lin  = nn.Linear(18450, 500)
+        self.conv_1 = nn.Conv2d(4, 5, 9)
+        self.conv_2 = nn.Conv2d(5, 1, (6, 4))
+        self.lin  = nn.Linear(120, 20)
 
     def forward(self, x):
-        x = self.conv(x)
+        x = self.conv_1(x)
         x = nn.MaxPool2d(4)(x)
         x = nn.functional.relu(x)
-        x = x.view(x.shape[0], -1)
 
+        x = self.conv_2(x)
+        x = nn.MaxPool2d(5)(x)
+        x = nn.functional.relu(x)
+
+        x = x.view(x.shape[0], -1)
         x = self.lin(x)
         x = nn.functional.relu(x)
 
@@ -38,16 +43,21 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.delin  = nn.Linear(500, 18450)
-        self.deconv = nn.ConvTranspose2d(5, 4, 9)
+        self.delin  = nn.Linear(20, 120)
+        self.deconv_1 = nn.ConvTranspose2d(1, 5, (6, 4))
+        self.deconv_2 = nn.ConvTranspose2d(5, 4, 9)
 
     def forward(self, x):
         x = self.delin(x)
         x = nn.functional.relu(x)
-        x = x.view(x.shape[0], 5, 30, 123)
+        x = x.view(x.shape[0], 1, 5, 24)
+
+        x = nn.Upsample(scale_factor=5)(x)
+        x = self.deconv_1(x)
+        x = nn.functional.relu(x)
 
         x = nn.Upsample(scale_factor=4)(x)
-        x = self.deconv(x)
+        x = self.deconv_2(x)
         x = nn.functional.relu(x)
 
         return x
